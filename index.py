@@ -3,7 +3,7 @@ from collections import *
 from discord.ext import commands
 import discord, pickle, string
 from discord_ui import UI, Components, Button, SelectMenu, SelectOption
-import random, time, json, os
+import random, time, json, os, datetime
 
 DISCORD_TOKEN = ('OTc0MTg4MTI2OTMzMjIxNDI3.Gdtz01.U9DBN77j2-HcXc3_mIzz7mgc71vAlrAg9RVLfE')
 
@@ -32,7 +32,8 @@ async def on_message(message):
         return
 
     global file_name
-    file_name = f'scs_stat/{message.author}.json'    
+    raw_name = (f'{message.author}').translate(str.maketrans('', '', string.punctuation))
+    file_name = f'scs_stat/{raw_name}.json'
 
     pos_count = 0
     neg_count = 0
@@ -62,11 +63,11 @@ async def on_message(message):
     if neg_count > pos_count:
         count = neg_count - pos_count
         expo_count = round(float(1.9) * pow(count, 2))
-        embed=discord.Embed(title=(f"总廷王 dissaproves of your -{expo_count} credit score"), description=str(random.choice(quo_list)), color=0xff6060)
-        embed.set_footer()
-        await message.channel.send(embed=embed)
         negative_serial()
-        await message.channel.send(current_scs())
+        embed=discord.Embed(title=(f"总廷王 dissaproves of your -{expo_count} credit score"), description=str(random.choice(quo_list)), color=0xff6060)
+        embed.set_footer(text=(f'your SCS: {current_scs()}'), icon_url=message.author.avatar_url)
+        embed.timestamp = datetime.datetime.now()
+        await message.channel.send(embed=embed)
 
     elif neg_count == pos_count:
         pass
@@ -74,10 +75,15 @@ async def on_message(message):
     else:
         count = int(pos_count - neg_count)
         expo_count = round(5 * count * float(1.25))
-        embed=discord.Embed(title=(f"总廷王 approves of your +{expo_count} credit score"), description=str(random.choice(quo_list)), color=0x99ff93)
-        await message.channel.send(embed=embed)
         positive_serial()
-        await message.channel.send(current_scs())
+        embed=discord.Embed(title=(f"总廷王 approves of your +{expo_count} credit score"), description=str(random.choice(quo_list)), color=0x99ff93)
+        embed.set_footer(text=(f'your SCS: +{current_scs()}'), icon_url=message.author.avatar_url)
+        embed.timestamp = datetime.datetime.now()
+        await message.channel.send(embed=embed)
+
+    #leaderboard 'command'
+    if message.content.startswith('leaderboard'):
+        await message.channel.send()
 
     #suggest 'command'
     if message.content.startswith('gest'):
@@ -100,7 +106,7 @@ async def on_message(message):
                 ).wait_for("button", client, timeout=10)
 
                 await btn.message.disable_components()
-                await btn.respond()
+                await btn.respond(leaderboard())
 
                 
 
@@ -183,6 +189,7 @@ def positive_serial():
             json.dump(def_dict, f)
 
     else:
+        print('file not found')
         def_dict = {'score': expo_count}
 
         with open(file_name, "w") as f:
@@ -193,10 +200,44 @@ def current_scs():
     dict = json.load(json_file)
     json_file.close()
 
-    current_score = dict["score"]
-    return current_score
+    score = dict["score"]
+    return score
 
+def leaderboard():
+    user_list = os.listdir('scs_stat')
+    leader_list_raw = []
+    leader_list = []
 
+    position = 1
+
+    for i in user_list:
+        json_file = open('scs_stat/'+i)
+        dict = json.load(json_file)
+        json_file.close()
+
+        score = dict["score"]
+        file_user_name = i.replace(".json", "")
+        tuple = (file_user_name, score)
+        leader_list_raw.append(tuple)
+
+    def sort_score(score):
+        return score[1]
+
+    leader_list_raw.sort(key=sort_score, reverse=True)
+
+    for i in leader_list_raw:
+        leader_list.append((position,)+i)
+        position += 1
+
+    leader_list='\n'.join([str(i) for i in leader_list])
+
+    remove_char = "()[]'"
+
+    for char in remove_char:
+        leader_list = leader_list.replace(char, "")
+        leader_list = leader_list.replace(',', " |")
+
+    return leader_list
 
 def add_pos():
     pass
@@ -206,4 +247,4 @@ def add_pos():
 async def on_button(btn):
     pass
 
-client.run(DISCORD_TOKEN)   
+client.run(DISCORD_TOKEN)
