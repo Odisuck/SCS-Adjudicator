@@ -1,5 +1,6 @@
 import asyncio
 from collections import *
+from distutils.log import error
 from discord.ext import commands
 import discord, pickle, string
 from discord_ui import UI, Components, Button, SelectMenu, SelectOption
@@ -32,8 +33,7 @@ async def on_message(message):
         return
 
     global file_name
-    raw_name = (f'{message.author}').translate(str.maketrans('', '', string.punctuation))
-    file_name = f'scs_stat/{raw_name}.json'
+    file_name = f'scs_stat/{message.author.id}.json'
 
     pos_count = 0
     neg_count = 0
@@ -83,7 +83,48 @@ async def on_message(message):
 
     #leaderboard 'command'
     if message.content.startswith('leaderboard'):
-        await message.channel.send()
+
+        user_list = os.listdir('scs_stat/')
+        leader_list_raw = []
+        leader_list = []
+
+        position = 1
+
+        for i in user_list:
+            if i != '.DS_Store':
+                json_file = open('scs_stat/'+i)
+                dict = json.load(json_file)
+                json_file.close()
+
+                score = dict["score"]
+                global file_user_name
+                file_user_name = i.replace(".json", "")
+                print(file_user_name)
+                
+                tuple = (await client.fetch_user(file_user_name), score)
+                leader_list_raw.append(tuple)
+
+        def sort_score(score):
+            return score[1]
+
+        leader_list_raw.sort(key=sort_score, reverse=True)
+
+        for i in leader_list_raw:
+            leader_list.append((str(position)+'.',)+i)
+            position += 1
+
+        leader_list='\n'.join([str(i) for i in leader_list])
+
+        remove_char = "()[]'"
+
+        for char in remove_char:
+            leader_list = leader_list.replace(char, "")
+            leader_list = leader_list.replace(',', " |")
+
+        embed=discord.Embed(title=(f'{leader_list}'), color=0x6735fc)
+        embed.set_footer(text='requested this', icon_url=message.author.avatar_url)
+        embed.timestamp = datetime.datetime.now()
+        await message.channel.send(embed=embed)
 
     #suggest 'command'
     if message.content.startswith('gest'):
@@ -106,7 +147,7 @@ async def on_message(message):
                 ).wait_for("button", client, timeout=10)
 
                 await btn.message.disable_components()
-                await btn.respond(leaderboard())
+                await btn.respond()
 
                 
 
@@ -163,13 +204,13 @@ def negative_serial():
 
         def_dict = {'score': new_score}
 
-        with open(file_name, "w") as f:
+        with open(file_name, "w", encoding='utf8') as f:
             json.dump(def_dict, f)
 
     else:
         def_dict = {'score': -abs(expo_count)}
 
-        with open(file_name, "w") as f:
+        with open(file_name, "w", encoding='utf8') as f:
             json.dump(def_dict, f)
     
 def positive_serial():
@@ -185,14 +226,14 @@ def positive_serial():
 
         def_dict = {'score': new_score}
 
-        with open(file_name, "w") as f:
+        with open(file_name, "w", encoding='utf8') as f:
             json.dump(def_dict, f)
 
     else:
         print('file not found')
         def_dict = {'score': expo_count}
 
-        with open(file_name, "w") as f:
+        with open(file_name, "w", encoding='utf8') as f:
             json.dump(def_dict, f)
 
 def current_scs():
@@ -204,21 +245,25 @@ def current_scs():
     return score
 
 def leaderboard():
-    user_list = os.listdir('scs_stat')
+    user_list = os.listdir('scs_stat/')
     leader_list_raw = []
     leader_list = []
 
     position = 1
 
     for i in user_list:
-        json_file = open('scs_stat/'+i)
-        dict = json.load(json_file)
-        json_file.close()
+        if i != '.DS_Store':
+            json_file = open('scs_stat/'+i)
+            dict = json.load(json_file)
+            json_file.close()
 
-        score = dict["score"]
-        file_user_name = i.replace(".json", "")
-        tuple = (file_user_name, score)
-        leader_list_raw.append(tuple)
+            score = dict["score"]
+            global file_user_name
+            file_user_name = i.replace(".json", "")
+            print(file_user_name)
+            
+            tuple = (file_user_name, score)
+            leader_list_raw.append(tuple)
 
     def sort_score(score):
         return score[1]
@@ -226,7 +271,7 @@ def leaderboard():
     leader_list_raw.sort(key=sort_score, reverse=True)
 
     for i in leader_list_raw:
-        leader_list.append((position,)+i)
+        leader_list.append((str(position)+'.',)+i)
         position += 1
 
     leader_list='\n'.join([str(i) for i in leader_list])
